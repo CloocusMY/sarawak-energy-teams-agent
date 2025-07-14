@@ -16,8 +16,10 @@ async def get_embedding_vector(text: str):
         azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
         azure_deployment=Config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
     ))
-    
-    result = await embeddings.create_embeddings(text)
+    try:
+        result = await embeddings.create_embeddings(text)
+    except Exception as e:
+        raise Exception(f"Error generating embeddings: {str(e)}")
     if (result.status != 'success' or not result.output):
         raise Exception(f"Failed to generate embeddings for description: {text}")
     
