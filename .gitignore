@@ -16,3 +16,6 @@ devTools/*.log
 
 # Dev tool directories
 /devTools/
+
+# Temporary files
+test.py
