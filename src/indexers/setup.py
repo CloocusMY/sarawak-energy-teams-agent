@@ -20,7 +20,7 @@ from azure.search.documents.indexes.models import (
 )
 from teams.ai.embeddings import AzureOpenAIEmbeddings, AzureOpenAIEmbeddingsOptions
 
-from get_data import get_doc_data
+from get_data import get_doc_data, get_doc_data_for_folder
 
 from dotenv import load_dotenv
 
@@ -74,30 +74,42 @@ def load_keys_from_args():
     return args
 
 async def setup(search_api_key, search_api_endpoint, args):
-    index = 'saeshav-test-teams-agent'
-    
-    print(f"Using search endpoint: {search_api_endpoint}")
-    print(f"Using search key: {search_api_key[:10]}...")
+    # Two indexes (adjust names as you like)
+    folder_index_map = {
+        "HR": "saeshav-hr-index",
+        "Procurement": "saeshav-procurement-index"
+    }
 
     credentials = AzureKeyCredential(search_api_key)
-
     search_index_client = SearchIndexClient(search_api_endpoint, credentials)
-    await create_index_if_not_exists(search_index_client, index)
-    
-    print("Create index succeeded. If it does not exist, wait for 5 seconds...")
-    await asyncio.sleep(5)
 
-    search_client = SearchClient(search_api_endpoint, index, credentials)
+    # Create indexes if they don't exist
+    for folder, index_name in folder_index_map.items():
+        print(f"🔧 Creating or updating index: {index_name}")
+        await create_index_if_not_exists(search_index_client, index_name)
 
+    await asyncio.sleep(5)  # Give some time after creation
+
+    # Initialize embeddings once
     embeddings = AzureOpenAIEmbeddings(AzureOpenAIEmbeddingsOptions(
         azure_api_key=args.api_key,
         azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'),
         azure_deployment=os.getenv('AZURE_OPENAI_EMBEDDING_DEPLOYMENT')
     ))
-    data = await get_doc_data(embeddings=embeddings)
-    await upsert_documents(search_client, data)
 
-    print("Upload new documents succeeded. If they do not exist, wait for several seconds...")
+    # Fetch documents folder-by-folder and upsert to respective index
+    for folder, index_name in folder_index_map.items():
+        print(f"📥 Fetching documents for folder: {folder}")
+        data = await get_doc_data_for_folder(folder_name=folder, embeddings=embeddings)
+
+        search_client = SearchClient(search_api_endpoint, index_name, credentials)
+        if data:
+            print(f"📤 Uploading {len(data)} documents to index: {index_name}")
+            await upsert_documents(search_client, data)
+        else:
+            print(f"⚠️ No documents found for folder: {folder}")
+
+    print("✅ All folders processed successfully!")
     
 args = load_keys_from_args()
 search_api_key = args.ai_search_key

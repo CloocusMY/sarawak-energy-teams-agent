@@ -38,16 +38,38 @@ model = OpenAIModel(
     
 prompts = PromptManager(PromptManagerOptions(prompts_folder=f"{os.getcwd()}/prompts"))
 
+# prompts.add_data_source(
+#     AzureAISearchDataSource(
+#         AzureAISearchDataSourceOptions(
+#             name='azure-ai-search',
+#             indexName='saeshav-test-teams-agent',
+#             azureAISearchApiKey=config.AZURE_SEARCH_KEY,
+#             azureAISearchEndpoint=config.AZURE_SEARCH_ENDPOINT,
+#         )
+#     )
+# )
 prompts.add_data_source(
     AzureAISearchDataSource(
         AzureAISearchDataSourceOptions(
-            name='azure-ai-search',
-            indexName='saeshav-test-teams-agent',
+            name='azure-ai-search-hr',
+            indexName='saeshav-hr-index',
             azureAISearchApiKey=config.AZURE_SEARCH_KEY,
             azureAISearchEndpoint=config.AZURE_SEARCH_ENDPOINT,
         )
     )
 )
+
+prompts.add_data_source(
+    AzureAISearchDataSource(
+        AzureAISearchDataSourceOptions(
+            name='azure-ai-search-procurement',
+            indexName='saeshav-procurement-index',
+            azureAISearchApiKey=config.AZURE_SEARCH_KEY,
+            azureAISearchEndpoint=config.AZURE_SEARCH_ENDPOINT,
+        )
+    )
+)
+
 
 planner = ActionPlanner(
     ActionPlannerOptions(model=model, prompts=prompts, default_prompt="chat")
