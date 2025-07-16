@@ -20,7 +20,7 @@ from azure.search.documents.indexes.models import (
 )
 from teams.ai.embeddings import AzureOpenAIEmbeddings, AzureOpenAIEmbeddingsOptions
 
-from get_data import get_doc_data, get_doc_data_for_folder
+from get_data import get_doc_data_for_folder
 
 from dotenv import load_dotenv
 

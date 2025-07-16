@@ -100,7 +100,7 @@ card = {
     ],
     "actions": [
         { "type": "Action.Submit", "title": "HR", "data": { "choice": "A" } },
-        { "type": "Action.Submit", "title": "Finances", "data": { "choice": "B" } }
+        { "type": "Action.Submit", "title": "Procurement", "data": { "choice": "B" } }
     ]
 }
 
@@ -140,6 +140,7 @@ class TeamsMiddleware(Middleware):
                 await context.send_activity("✅ You clicked HR!")
             elif choice == "B":
                 await context.send_activity("✅ You clicked Finances!")
+                
             else:
                 await context.send_activity(f"❓ Unknown choice: {choice}")
             return  # stop after handling button
