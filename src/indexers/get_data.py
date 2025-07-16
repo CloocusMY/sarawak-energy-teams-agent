@@ -2,13 +2,15 @@ import os
 import requests
 import msal
 from dotenv import load_dotenv
+from PyPDF2 import PdfReader
+import io
  
 # Load environment variables
 load_dotenv()
  
 async def get_doc_data(embeddings):
     """
-    Fetch documents from SharePoint instead of local storage
+    Fetch ALL documents from SharePoint instead of just the first file in each folder.
     """
     print("🔄 Fetching documents from SharePoint...")
    
@@ -27,28 +29,71 @@ async def get_doc_data(embeddings):
    
     documents = []
    
-    # Document 1: From HR folder
-    hr_file_content = get_file_from_sharepoint(headers, graph_api_endpoint, site_id, drive_id, "HR")
-    if hr_file_content:
-        doc1 = {
-            "docId": "1",
-            "docTitle": "HR_Documents",
-            "description": hr_file_content,
-            "descriptionVector": await get_embedding_vector(hr_file_content, embeddings=embeddings),
-        }
-        documents.append(doc1)
-   
-    # Document 2: From Procurement folder
-    procurement_file_content = get_file_from_sharepoint(headers, graph_api_endpoint, site_id, drive_id, "Procurement")
-    if procurement_file_content:
-        doc2 = {
-            "docId": "2",
-            "docTitle": "Procurement_Documents",
-            "description": procurement_file_content,
-            "descriptionVector": await get_embedding_vector(procurement_file_content, embeddings=embeddings),
-        }
-        documents.append(doc2)
-   
+    folders = ["HR", "Procurement"]
+
+    for folder_name in folders:
+        print(f"📂 Checking folder: {folder_name}")
+        folder_url = f"{graph_api_endpoint}/sites/{site_id}/drives/{drive_id}/root:/{folder_name}:/children"
+        response = requests.get(folder_url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"❌ Failed to access folder {folder_name}: {response.status_code}")
+            continue
+
+        files = response.json().get("value", [])
+        if not files:
+            print(f"⚠️ No files found in {folder_name}")
+            continue
+
+        for idx, file in enumerate(files, start=1):
+            if file.get("folder"):
+                # Skip subfolders
+                continue
+
+            file_id = file.get("id")
+            file_name = file.get("name")
+
+            # Download file content
+            download_url = f"{graph_api_endpoint}/sites/{site_id}/drives/{drive_id}/items/{file_id}/content"
+            file_response = requests.get(download_url, headers=headers)
+
+            if file_response.status_code != 200:
+                print(f"❌ Failed to download file {file_name}: {file_response.status_code}")
+                continue
+
+            # Handle PDF or text
+            if file_name.lower().endswith(".pdf"):
+                try:
+                    content = extract_text_from_pdf(file_response.content, file_name)
+                    # content = extract_text_from_pdf_simple(file_response.content, file_name)
+                    if not content:
+                        content = f"Document: {file_name} from {folder_name}. PDF requires text extraction."
+                except Exception as e:
+                    print(f"❌ Error processing PDF {file_name}: {e}")
+                    content = f"Document: {file_name} from {folder_name}. PDF processing failed."
+            else:
+                try:
+                    content = file_response.content.decode("utf-8")
+                    print(f"✅ Loaded: {file_name} from {folder_name}")
+                except UnicodeDecodeError:
+                    print(f"⚠️ Could not decode {file_name} as text.")
+                    content = f"Document: {file_name} from {folder_name}. Cannot decode as text."
+
+            # Generate embeddings
+            try:
+                embedding = await get_embedding_vector(content, embeddings=embeddings)
+            except Exception as e:
+                print(f"❌ Failed to generate embedding for {file_name}: {e}")
+                continue
+
+            # Append document
+            documents.append({
+                "docId": f"{folder_name}_{idx}",
+                "docTitle": f"{folder_name}_{file_name}",
+                "description": content,
+                "descriptionVector": embedding,
+            })
+
     print(f"✅ Successfully loaded {len(documents)} documents from SharePoint")
     return documents
  
@@ -105,7 +150,8 @@ def get_file_from_sharepoint(headers, graph_api_endpoint, site_id, drive_id, fol
                         try:
                             # For now, we'll extract basic text.
                             # In production, you'd want to use a proper PDF library like PyPDF2 or pdfplumber
-                            content = extract_text_from_pdf_simple(file_response.content, file_name)
+                            content = extract_text_from_pdf(file_response.content, file_name)
+                            # content = extract_text_from_pdf_simple(file_response.content, file_name)
                             if content:
                                 print(f"✅ Successfully extracted text from PDF: {file_name} from {folder_name}")
                                 return content
@@ -134,6 +180,21 @@ def get_file_from_sharepoint(headers, graph_api_endpoint, site_id, drive_id, fol
         return None
  
  
+def extract_text_from_pdf(pdf_content, file_name):
+    """Extract text from PDF"""
+    try:
+        reader = PdfReader(io.BytesIO(pdf_content))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        if not text.strip():
+            raise ValueError("No text found in PDF")
+        return text.strip()
+    except Exception as e:
+        print(f"❌ Error extracting text from PDF {file_name}: {str(e)}")
+        return None
+    
+
 def extract_text_from_pdf_simple(pdf_content, file_name):
     """Simple PDF text extraction - returns basic info for now"""
     # For a quick test, we'll return file info
@@ -145,10 +206,10 @@ def extract_text_from_pdf_simple(pdf_content, file_name):
         content_str = str(pdf_content)
        
         # Look for common text patterns
-        text_content = f"PDF Document: {file_name}\n"
-        text_content += f"File size: {len(pdf_content)} bytes\n"
-        text_content += "This is a PDF document that contains text content. "
-        text_content += "Full text extraction would require additional PDF processing libraries."
+        text_content = f"PDF Document: {file_name}\n \
+            File size: {len(pdf_content)} bytes\n \
+                This is a PDF document that contains text content. \
+                    Full text extraction would require additional PDF processing libraries."
        
         return text_content
        

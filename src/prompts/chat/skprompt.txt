@@ -21,4 +21,4 @@ Data format:
         ...
     ]
 } 
-If nothing relevant is found, still reply briefly.
+If nothing relevant is found, you must still reply briefly.
