@@ -16,8 +16,12 @@ from azure.search.documents.indexes.models import (
     CorsOptions,
     VectorSearch,
     VectorSearchProfile,
-    HnswAlgorithmConfiguration
-)
+    HnswAlgorithmConfiguration,
+    SemanticSearch,
+    SemanticConfiguration,
+    SemanticField,
+    SemanticPrioritizedFields)
+
 from teams.ai.embeddings import AzureOpenAIEmbeddings, AzureOpenAIEmbeddingsOptions
 
 from get_data import get_doc_data_for_folder
@@ -50,17 +54,43 @@ async def upsert_documents(client: SearchClient, documents: list[Doc]):
 async def create_index_if_not_exists(client: SearchIndexClient, name: str):
     doc_index = SearchIndex(
         name=name,
-        fields = [
+        fields=[
             SimpleField(name="docId", type=SearchFieldDataType.String, key=True),
-            SimpleField(name="docTitle", type=SearchFieldDataType.String),
-            SearchableField(name="description", type=SearchFieldDataType.String, searchable=True),
-            SearchField(name="descriptionVector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single), hidden=False, searchable=True, vector_search_dimensions=1536, vector_search_profile_name='my-vector-config'),
+            SimpleField(name="docTitle", type=SearchFieldDataType.String, filterable=True, retrievable=True),
+            SimpleField(name="location", type=SearchFieldDataType.String, retrievable=True),
+            SearchableField(name="description", type=SearchFieldDataType.String, searchable=True, retrievable=True),
+            SearchField(
+                name="descriptionVector",
+                type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+                hidden=False,
+                searchable=True,
+                vector_search_dimensions=1536,
+                vector_search_profile_name='my-vector-config'
+            ),
         ],
-        scoring_profiles=[],
-        cors_options=CorsOptions(allowed_origins=["*"]),
-        vector_search = VectorSearch(
-            profiles=[VectorSearchProfile(name="my-vector-config", algorithm_configuration_name="my-algorithms-config")],
-            algorithms=[HnswAlgorithmConfiguration(name="my-algorithms-config")],
+        vector_search=VectorSearch(
+            profiles=[
+                VectorSearchProfile(
+                    name="my-vector-config",
+                    algorithm_configuration_name="my-algorithms-config"
+                )
+            ],
+            algorithms=[
+                HnswAlgorithmConfiguration(name="my-algorithms-config")
+            ],
+        ),
+        
+        semantic_search=SemanticSearch(
+            configurations=[
+                SemanticConfiguration(
+                    name="my-semantic-config",
+                    prioritized_fields=SemanticPrioritizedFields(
+                        title_field=SemanticField(field_name="docTitle"),
+                        content_fields=[SemanticField(field_name="description")],
+                        keywords_fields=[]
+                    )
+                )
+            ]
         )
     )
 

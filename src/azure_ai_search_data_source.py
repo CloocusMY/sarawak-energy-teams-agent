@@ -66,6 +66,7 @@ class AzureAISearchDataSource(DataSource):
     async def render_data(self, _context: TurnContext, memory: Memory, tokenizer: Tokenizer, maxTokens: int):
         query = memory.get('temp.input')
         embedding = await get_embedding_vector(query)
+        print(f"🔎 DataSource {self.name} called with query: {query}")
         vector_query = VectorizedQuery(vector=embedding, k_nearest_neighbors=2, fields="descriptionVector")
 
         if not query:
@@ -74,6 +75,7 @@ class AzureAISearchDataSource(DataSource):
         selectedFields = [
             'docTitle',
             'description',
+            'location',
             'descriptionVector',
         ]
 
@@ -81,11 +83,14 @@ class AzureAISearchDataSource(DataSource):
             search_text=query,
             select=selectedFields,
             vector_queries=[vector_query],
+            query_type="semantic",
+            semantic_configuration_name="my-semantic-config"
         )
 
         if not searchResults:
+            print(f"⚠️ No results found for query: {query}")
             return Result('', 0, False)
-
+        print(f"✅ Found {(searchResults)} results for query: {query}") 
         usedTokens = 0
         doc = ''
         for result in searchResults:

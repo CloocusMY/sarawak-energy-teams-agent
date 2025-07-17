@@ -56,8 +56,8 @@ async def get_doc_data_for_folder(folder_name: str, embeddings) -> List[Dict]:
                 print(f"⚠️ Could not decode {file_name} as text.")
                 content = f"{file_name}: unable to decode."
 
-        max_tokens = 8000
-        overlap_tokens = 400
+        max_tokens = 1000
+        overlap_tokens = 150
         chunks = split_text_with_overlap(content, max_tokens, overlap_tokens)
 
         for chunk_idx, chunk in enumerate(chunks, start=1):
@@ -69,10 +69,12 @@ async def get_doc_data_for_folder(folder_name: str, embeddings) -> List[Dict]:
 
             documents.append({
                 "docId": f"{folder_name}_{idx}_{chunk_idx}",
-                "docTitle": f"{folder_name}_{file_name}",
+                "docTitle": file_name,
                 "description": chunk,
+                "location": folder_name,  # ✅ NEW FIELD
                 "descriptionVector": embedding
             })
+        break  # only process the first chunk for simplicity
 
     print(f"✅ Fetched {len(documents)} docs from {folder_name}")
     return documents

@@ -19,3 +19,4 @@ devTools/*.log
 
 # Temporary files
 test.py
+test_setup.py
