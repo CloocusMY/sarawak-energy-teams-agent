@@ -7,6 +7,7 @@ from teams.state.memory import Memory
 from teams.state.state import TurnContext
 from teams.ai.tokenizers import Tokenizer
 from teams.ai.data_sources import DataSource
+from state_store import storage
 
 from config import Config
 
@@ -65,6 +66,26 @@ class AzureAISearchDataSource(DataSource):
 
     async def render_data(self, _context: TurnContext, memory: Memory, tokenizer: Tokenizer, maxTokens: int):
         query = memory.get('temp.input')
+
+        user_id = _context.activity.from_property.id
+        conv_id = _context.activity.conversation.id
+        key = f"{conv_id}:{user_id}"
+
+        stored = await storage.read([key])
+        selection = None
+        if stored and key in stored:
+            selection = stored[key].get("selected_sources")  # "hr" or "procurement"
+
+        # ✅ if nothing stored, allow both
+        if selection is None:
+            selection = "both"
+
+        # ✅ now filter
+        if self.name == "azure-ai-search-hr" and selection != "hr":
+            return Result('', 0, False)
+        if self.name == "azure-ai-search-procurement" and selection != "procurement":
+            return Result('', 0, False)
+
         embedding = await get_embedding_vector(query)
         print(f"🔎 DataSource {self.name} called with query: {query}")
         vector_query = VectorizedQuery(vector=embedding, k_nearest_neighbors=2, fields="descriptionVector")

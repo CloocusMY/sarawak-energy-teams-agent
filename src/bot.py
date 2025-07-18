@@ -22,6 +22,7 @@ from teams.ai.actions import ActionTypes, ActionTurnContext
 from azure_ai_search_data_source import AzureAISearchDataSource, AzureAISearchDataSourceOptions
 from custom_say_command import say_command
 from config import Config
+from state_store import storage
 
 config = Config()
 
@@ -76,7 +77,7 @@ planner = ActionPlanner(
 )
 
 # Define storage and application
-storage = MemoryStorage()
+# storage = MemoryStorage()
 bot_app = Application[TurnState](
     ApplicationOptions(
         bot_app_id=config.APP_ID,
@@ -85,11 +86,6 @@ bot_app = Application[TurnState](
         ai=AIOptions(planner=planner, enable_feedback_loop=True),
     )
 )
-
-@bot_app.ai.action(ActionTypes.SAY_COMMAND)
-async def on_say(_context: ActionTurnContext, _state: TurnState):
-    return await say_command(_context, _state, _context.data, feedback_loop_enabled=True)
-
 
 card = {
     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -104,21 +100,11 @@ card = {
     ]
 }
 
-# @bot_app.message("")
-# async def on_message(_context: TurnContext, state: TurnState):
-#     # If it's a card submit
-#     if _context.activity.value:
-#         data = _context.activity.value
-#         choice = data.get("choice")
-#         if choice == "A":
-#             await _context.send_activity("✅ You clicked HR!")
-#         elif choice == "B":
-#             await _context.send_activity("✅ You clicked Finances!")
-#         else:
-#             await _context.send_activity(f"❓ Unknown choice: {choice}")
-#         return True
 
-#     return False
+@bot_app.ai.action(ActionTypes.SAY_COMMAND)
+async def on_say(_context: ActionTurnContext, _state: TurnState):
+    return await say_command(_context, _state, _context.data, feedback_loop_enabled=True)
+
 
 class TeamsMiddleware(Middleware):
     async def on_turn(self, context: TurnContext, next_call):
@@ -136,9 +122,16 @@ class TeamsMiddleware(Middleware):
         if context.activity.type == ActivityTypes.message and context.activity.value:
             data = context.activity.value
             choice = data.get("choice")
+
+            user_id = context.activity.from_property.id
+            conv_id = context.activity.conversation.id
+            key = f"{conv_id}:{user_id}"
+
             if choice == "A":
+                await storage.write({ key: {"selected_sources": "hr"} })
                 await context.send_activity("✅ You clicked HR!")
             elif choice == "B":
+                await storage.write({ key: {"selected_sources": "procurement"} })
                 await context.send_activity("✅ You clicked Finances!")
                 
             else:
