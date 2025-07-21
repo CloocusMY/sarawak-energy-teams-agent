@@ -74,17 +74,15 @@ class AzureAISearchDataSource(DataSource):
         stored = await storage.read([key])
         selection = None
         if stored and key in stored:
-            selection = stored[key].get("selected_sources")  # "hr" or "procurement"
+            selection = stored[key].get("selected_sources")
 
-        # ✅ if nothing stored, allow both
-        if selection is None:
-            selection = "both"
+        if not selection:
+            pass
+        else:
+            if isinstance(selection, str):
+                if selection != self.name:
+                    return Result('', 0, False)
 
-        # ✅ now filter
-        if self.name == "azure-ai-search-hr" and selection != "hr":
-            return Result('', 0, False)
-        if self.name == "azure-ai-search-procurement" and selection != "procurement":
-            return Result('', 0, False)
 
         embedding = await get_embedding_vector(query)
         print(f"🔎 DataSource {self.name} called with query: {query}")

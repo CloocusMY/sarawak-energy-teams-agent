@@ -17,8 +17,8 @@
   "augmentation": {
       "augmentation_type": "none",
       "data_sources": {
-          "azure-ai-search-procurement": 2048,
-          "azure-ai-search-hr": 2048
+          "saeshav-procurement-index": 2048,
+          "saeshav-hr-index": 2048
       }
   }
 }

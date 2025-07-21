@@ -1,6 +1,7 @@
 import asyncio, os, argparse
 from dataclasses import dataclass
 from typing import List, Optional
+import json
 
 from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import ServiceRequestError
@@ -105,10 +106,8 @@ def load_keys_from_args():
 
 async def setup(search_api_key, search_api_endpoint, args):
     # Two indexes (adjust names as you like)
-    folder_index_map = {
-        "HR": "saeshav-hr-index",
-        "Procurement": "saeshav-procurement-index"
-    }
+    with open(os.path.join(script_dir, 'folders.json'), 'r') as f:
+        folder_index_map = json.load(f)
 
     credentials = AzureKeyCredential(search_api_key)
     search_index_client = SearchIndexClient(search_api_endpoint, credentials)
